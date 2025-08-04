@@ -1,6 +1,5 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
@@ -33,8 +32,6 @@ for _ in range(10):
 chats = driver.find_elements(By.XPATH, '//div[@role="gridcell"]//span[@title]')
 print(f"Found {len(chats)} chats.")
 
-actions = ActionChains(driver)
-
 for chat in chats:
     name = chat.get_attribute("title")
 
@@ -42,24 +39,50 @@ for chat in chats:
     if name and re.fullmatch(r'\+?\d+', name.replace(" ", "")):
         print(f"Deleting chat with: {name}")
 
-        # Scroll into view
+        # Scroll into view & click using JS
         driver.execute_script("arguments[0].scrollIntoView(true);", chat)
         time.sleep(1)
+        driver.execute_script("arguments[0].click();", chat)
 
-        # Right-click the chat
-        actions.context_click(chat).perform()
+        # ✅ Wait for chat header (user info at top) to appear
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, '//header'))
+        )
         time.sleep(1)
 
-        # Click "Delete chat" from context menu
+        # ✅ Try multiple menu button selectors
+        menu_selectors = [
+            '//div[@role="button" and @aria-label="Menu"]',
+            '//span[@data-icon="menu"]'
+        ]
+
+        menu_button = None
+        for selector in menu_selectors:
+            try:
+                menu_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                break
+            except:
+                continue
+
+        if not menu_button:
+            print(f"⚠️ Menu button not found for {name}, skipping.")
+            continue
+
+        menu_button.click()
+        time.sleep(1)
+
+        # ✅ Click "Delete chat"
         delete_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, '//div[@role="button" and text()="Delete chat"]'))
         )
         delete_button.click()
         time.sleep(1)
 
-        # Confirm deletion (click the red "Delete" button)
+        # ✅ Confirm deletion
         confirm_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//div[@role="button" and text()="Delete"]'))
+            EC.element_to_be_clickable((By.XPATH, '//div[@role="button" and text()="DELETE CHAT"]'))
         )
         confirm_button.click()
         time.sleep(2)
